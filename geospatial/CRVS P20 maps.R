@@ -1,4 +1,4 @@
-required.packages <- c("dplyr","ggplot2","data.table","tmap","sf","leaflet")
+required.packages <- c("dplyr","ggplot2","data.table","tmap","sf","leaflet","rgdal","scales","rgeos","maptools")
 lapply(required.packages, require, character.only=T)
 
 
@@ -34,6 +34,13 @@ plot_dat <- left_join(plot_dat,names, by="iso3")
 
 plot_dat <- plot_dat[,c(7,1:6,8:length(plot_dat))]
 
+dat_export <- plot_dat[!is.na(plot_dat$max),]
+dat_export$geometry <- NULL
+fwrite(dat_export,"C:/P20_map_data.csv")
+
+#map2 <- readOGR("C:/git/di-geospatial/Datahub/world/world.shp")
+#names(map2@data)[3] <- "iso3"
+#map2@data <- left_join(map2@data, plot_dat, by="iso3")
 
 #full leaflet map percentage change
 pal <- colorBin(
@@ -180,5 +187,43 @@ leaflet(data= plot_dat_t) %>%
   # addTiles(attribution = "Development Initiatives") %>%
   removeLayersControl()
 
+####new map test####
+map2 <- readOGR("C:/git/di-geospatial/Datahub/world/world.shp")
+names(map2@data)[3] <- "iso3"
+map2@data <- left_join(map2@data, plot_dat, by="iso3")
 
+pal <- colorBin(
+  palette = "YlOrRd",
+  na.color="#d0cccf",
+  bins = c(0,20,40,60,80,100)
+)
 
+leaflet(data=map2) %>%
+  setView(0, 0,zoom=1) %>%
+  
+  addPolygons(color=pal(map2@data[,"new"])
+              ,fillOpacity = 1
+              ,stroke=F
+              ,smoothFactor=1
+              ,popup=paste0(
+                sub(paste0("<b>Country</b>: <br/>"),"",paste0("<b>Country</b>: ",map2@data[,"map_name"],"<br/>")),
+                sub(paste0("<b>Birth Registration NA: </b>NA%<br/>"),"",paste0("<b>Birth Registration ", map2@data[,"max"],": </b>",round(map2@data[,"new"]),"%","<br/>"))
+              )) %>%
+  
+  addPolylines(
+    color="#eeeeee",
+    weight=0.5,
+    opacity=1,
+    smoothFactor=1)%>%
+  
+  addLegend(
+    "bottomright"
+    , pal=pal
+    , values = plot_dat$change
+    , opacity = 1
+    , title="P20 birth registration (most recent data year)"
+    ,labFormat = labelFormat(suffix="%")
+    ,na.label = "No Data"
+  ) %>%
+  # addTiles(attribution = "Development Initiatives") %>%
+  removeLayersControl()
